@@ -11,8 +11,8 @@ import {TaskQueue} from './queue.ts';
 import {Approval,decision,ruleSchema} from '../permissions/index.ts';
 import {toolSchema,executeAction,fileAction} from './tools.ts';
 import {actionSchema} from '../contracts/index.ts';
-import type {Observation} from '../contracts/index.ts';
-import {ResearchStore} from '../research/index.ts';
+import type {Observation,Provider} from '../contracts/index.ts';
+import {ResearchStore,type DocumentEvidence} from '../research/index.ts';
 import {completion} from './completion.ts';
 import {Documents} from '../documents/index.ts';
 export class Engine {
@@ -20,38 +20,40 @@ export class Engine {
   browser=config.native?new NativeBridge():new BrowserBridge();
   active:string|null=null; stopped=false;
   activeConversation:string|null=null;queue=new TaskQueue();
+  activeProvider:Provider='codex';
   approval=new Approval();externalBusy=false;
   research=new ResearchStore(config.artifacts);
   documents=new Documents(config.data);
   constructor() {}
-  submit(conversationId:string,message:string,mode:'queue'|'steer'='queue') {
+  submit(conversationId:string,message:string,mode:'queue'|'steer'='queue',provider:Provider='codex') {
     if(this.externalBusy)throw Error('외부 AI가 브라우저 도구를 사용 중입니다.');
     if(this.active&&mode==='steer') {
       if(this.activeConversation!==conversationId)throw Error('Only the active conversation can be steered');
-      this.store.message(conversationId,'user',message);this.queue.steer();
+      this.activeProvider=provider;this.store.message(conversationId,'user',message);this.queue.steer();
       this.store.event(this.active,'steered',{message});return this.active;
     }
-    const task=this.queue.add(conversationId,message);
+    const task=this.queue.add(conversationId,message,provider);
     this.store.run(task.id,conversationId);this.store.status(task.id,'queued');
-    this.store.request(task.id,conversationId,message);this.store.event(task.id,'queued',{message});
+    this.store.request(task.id,conversationId,message);this.store.event(task.id,'queued',{message,provider});
     if(!this.active)this.startNext();return task.id;
   }
   private startNext() {
     const task=this.queue.take();if(!task)return;
-    this.active=task.id;this.activeConversation=task.conversationId;this.stopped=false;
+    this.active=task.id;this.activeConversation=task.conversationId;this.activeProvider=task.provider;this.stopped=false;
     this.store.status(task.id,'running');this.store.message(task.conversationId,'user',task.message);
-    this.store.event(task.id,'started',{message:task.message});void this.execute(task.id,task.conversationId);
+    this.store.event(task.id,'started',{message:task.message,provider:task.provider});void this.execute(task.id,task.conversationId);
   }
   async execute(id:string,conversationId:string) {
     const receipts:unknown[]=[];
     const observations:Observation[]=[];
+    const documentEvidence:DocumentEvidence[]=[];
     try {
       for(let step=0;step<config.steps;step++) {
         if(this.stopped) throw Error('사용자가 작업을 중단했습니다. 완료된 변경은 유지됩니다.');
         this.store.event(id,'thinking',{step});
         const revision=this.queue.revision;
         const action=await decide({history:this.store.history(conversationId),
-          browser:this.browser.observation??null,files:this.files.list(),documents:this.documents.list(),receipts});
+          browser:this.browser.observation??null,files:this.files.list(),documents:this.documents.list(),receipts},this.activeProvider);
         if(this.stopped) throw Error('사용자가 작업을 중단했습니다.');
         if(revision!==this.queue.revision){this.store.event(id,'replanning',{});continue;}
         this.store.event(id,'action',{kind:action.kind,target:action.target,explanation:action.explanation});
@@ -65,7 +67,8 @@ export class Engine {
         const result=action.kind==='read_document'?await this.documents.read(action.target)
           :await executeAction(action,this.files,this.browser);
         if('url' in result)observations.push(result);
-        if(action.kind==='save'&&observations.length)this.research.record(action.target,observations,id);
+        if('units' in result)documentEvidence.push(result);
+        if(action.kind==='save'&&(observations.length||documentEvidence.length))this.research.record(action.target,observations,id,documentEvidence);
         receipts.push({action:action.kind,result});
         this.store.event(id,'result',{kind:action.kind,result});
       }

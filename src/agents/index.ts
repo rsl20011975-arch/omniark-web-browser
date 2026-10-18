@@ -5,6 +5,7 @@ import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import {config} from '../config/index.ts';
 import {actionSchema,type Action} from '../contracts/index.ts';
+import {claudeDecision} from './claude.ts';
 const instructions=`You are the planner inside a Korean local browser/file workbench.
 Return ONE next action using the required schema. Do not execute tools yourself.
 Fields not used must be empty strings. You have NO shell or filesystem tools.
@@ -22,7 +23,8 @@ Do not perform payments, publication, account changes, deletion or sending messa
 For research collect requested visible facts. For CSV output valid escaped CSV.
 Finish only after the requested writes have tool receipts; give filename and concise result.
 No Markdown fences outside schema. Think briefly and select the next tool.`;
-export async function decide(context:unknown):Promise<Action> {
+export async function decide(context:unknown,provider:'codex'|'claude'='codex'):Promise<Action> {
+  if(provider==='claude')return claudeDecision(instructions,context);
   const directory=path.join(config.data,'planner'); fs.mkdirSync(directory,{recursive:true});
   const schema=path.join(directory,'action.schema.json');
   fs.writeFileSync(schema,JSON.stringify(z.toJSONSchema(actionSchema)));

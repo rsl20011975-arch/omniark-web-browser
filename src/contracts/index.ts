@@ -7,7 +7,9 @@ export const actionSchema = z.strictObject({
 export const chatSchema = z.strictObject({
   conversationId:z.string().uuid(), message:z.string().trim().min(1).max(16000),
   mode:z.enum(['queue','steer']).default('queue'),
+  provider:z.enum(['codex','claude']).default('codex'),
 });
+export type Provider='codex'|'claude';
 export type Action = z.infer<typeof actionSchema>;
 export type Message = {role:'user'|'assistant';content:string};
 export type Artifact = {name:string;hash:string;bytes:number;content:string};

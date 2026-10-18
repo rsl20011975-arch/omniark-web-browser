@@ -49,7 +49,7 @@ const server=createServer(async(req,res)=>{
         return engine.browser.screenshot?res.end(engine.browser.screenshot):json(res,{error:'No browser observation'},404);
       }
       if(url.pathname==='/api/chat'&&req.method==='POST') {
-        const input=chatSchema.parse(await body(req));return json(res,{runId:engine.submit(input.conversationId,input.message,input.mode)},202);
+        const input=chatSchema.parse(await body(req));return json(res,{runId:engine.submit(input.conversationId,input.message,input.mode,input.provider)},202);
       }
       if(url.pathname==='/api/stop'&&req.method==='POST') {engine.stopped=true;engine.approval.cancel();return json(res,{ok:true});}
       if(url.pathname==='/api/queue/resume'&&req.method==='POST'){engine.resumeQueue();return json(res,{ok:true});}

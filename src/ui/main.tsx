@@ -13,6 +13,7 @@ function App() {
   const [error,setError]=useState(''),[full,setFull]=useState(wholeChat),[dark,setDark]=useState(false);
   const [image,setImage]=useState<string|null>(null),[sending,setSending]=useState(false);
   const [mode,setMode]=useState<'queue'|'steer'>('queue');
+  const [provider,setProvider]=useState(()=>localStorage.getItem('provider')??'codex');
   const snapshotId=useRef(''),imageUrl=useRef<string|null>(null),bottom=useRef<HTMLDivElement>(null);
   useEffect(()=>{
     let disposed=false;
@@ -33,7 +34,7 @@ function App() {
     window.addEventListener('storage',sync);return()=>window.removeEventListener('storage',sync);},[]);
   async function send(event:React.FormEvent) {
     event.preventDefault();setError('');setSending(true);
-    try{await api('chat',{conversationId:conversation,message,mode});setMessage('');}
+    try{await api('chat',{conversationId:conversation,message,mode,provider});setState(await api<State>('state?conversation='+conversation));setMessage('');}
     catch(e){setError(String(e));}finally{setSending(false);}
   }
   const busy=!!state?.active||sending;
@@ -44,7 +45,7 @@ function App() {
     <Conversations state={state}/><div className="workspace-title"><div><p className="eyebrow">PERSONAL WORKSPACE</p><h1>{copy.title}</h1><p>{copy.subtitle}</p></div><span className={'status '+(busy?'running':'')}>{busy?copy.busy:copy.ready}</span></div>
     <div className={'workspace '+(full?'full':'')}>
       <div className="work-area">{!full&&!nativePanel&&<BrowserPanel state={state} image={image}/>}<FilePanel state={state}/></div>
-      <section className="chat"><div className="pane-heading"><span>{copy.chat}</span><span className="badge">{copy.provider}</span></div>
+      <section className="chat"><div className="pane-heading"><span>{copy.chat}</span><select aria-label="작업 AI" value={provider} onChange={e=>{setProvider(e.target.value);localStorage.setItem('provider',e.target.value);}}><option value="codex">ChatGPT · Codex</option><option value="claude">Claude · 구독 계정</option></select></div>
         <div className="messages">{!state?.history.length&&<div className="welcome"><h2>무엇을 함께 할까요?</h2><p>웹페이지의 표를 파일로 정리하거나,<br/>만든 파일에 열을 추가해 보세요.</p>
           <button onClick={()=>setMessage(`${apiBase||location.origin}/fixture 에서 목록 보기 버튼을 누르고 표의 10개 행을 업무.csv로 저장해줘.`)}>검증용 자료로 시작하기</button></div>}
           {state?.history.map((item,index)=><article key={index} className={'message '+item.role}><span>{item.role==='user'?'나':'Workbench'}</span><div>{item.content}</div></article>)}
