@@ -1,0 +1,23 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {randomUUID} from 'node:crypto';
+import {Store} from '../src/engine/store.ts';
+import {FileStore} from '../src/files/index.ts';
+import {reconcile} from '../src/engine/recovery.ts';
+test('recovery reconciles written-but-unacknowledged file once and never replays unknown clicks',()=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'workbench-recovery-'));
+  let store=new Store(directory);const files=new FileStore(path.join(directory,'files'));
+  const id=randomUUID(),conversation=randomUUID();store.run(id,conversation);store.request(id,conversation,'write');
+  const action={kind:'save',target:'first.md',value:'verified',expectedHash:'',observationId:'',explanation:''};
+  store.event(id,'planned',action);files.save(action.target,action.value,'');store.db.close();
+  store=new Store(directory);
+  const result=reconcile(store,files,id);assert.equal(result.receipts.length,1);
+  assert.equal(reconcile(store,files,id).receipts.length,1,'reconciliation itself must be idempotent');
+  assert.equal(fs.readdirSync(path.join(files.directory,'.versions')).length,0);
+  const click=randomUUID();store.run(click,conversation);store.request(click,conversation,'submit');
+  store.event(click,'planned',{...action,kind:'click',target:'1'});store.status(click,'interrupted');
+  assert.throws(()=>reconcile(store,files,click),/자동 재실행하지 않습니다/);store.db.close();
+});

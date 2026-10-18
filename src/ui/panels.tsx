@@ -6,7 +6,7 @@ import {DocumentsPanel} from './documents/index.tsx';
 export function BrowserPanel({state,image}:{state:State|null;image:string|null}) {
   return <section className="browser-panel"><div className="pane-heading"><span>{copy.browser}</span><span className="badge">전용 세션</span></div>
     <div className="address">{state?.browser?.url??'아직 열린 페이지 없음'}</div>
-    {state?.native?<div className="browser-empty"><div className="line-mark"/><h2>브라우저 탭과 연결되어 있습니다</h2><p>{state.browser?.title??'브라우저에서 페이지를 열어주세요.'}</p><p>실제 페이지는 전용 브라우저 탭에서 확인하세요.</p></div>:image?<><img className="browser-image" src={image} alt="실제 Chromium의 마지막 관찰 화면"/><div className="caption">실제 브라우저 · 마지막 도구 실행 시점의 화면</div></>:
+    {state?.native?<div className="browser-empty"><div className="line-mark"/><h2>{state.browser?'마지막으로 읽은 페이지':'전용 브라우저에서 페이지를 여세요'}</h2><p>{state.browser?.title??'채팅에 주소와 할 일을 입력하세요.'}</p><p>실제 페이지는 전용 브라우저 탭에서 확인하세요.</p></div>:image?<><img className="browser-image" src={image} alt="실제 Chromium의 마지막 관찰 화면"/><div className="caption">실제 브라우저 · 마지막 도구 실행 시점의 화면</div></>:
       <div className="browser-empty"><div className="line-mark"/><h2>{copy.emptyBrowser}</h2><p>{copy.browserHelp}</p></div>}
   </section>;
 }

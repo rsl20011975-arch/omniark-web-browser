@@ -53,6 +53,10 @@ const server=createServer(async(req,res)=>{
       }
       if(url.pathname==='/api/stop'&&req.method==='POST') {engine.stopped=true;engine.approval.cancel();return json(res,{ok:true});}
       if(url.pathname==='/api/queue/resume'&&req.method==='POST'){engine.resumeQueue();return json(res,{ok:true});}
+      if(url.pathname==='/api/recover'&&req.method==='POST') {
+        const {id}=z.strictObject({id:z.string().uuid()}).parse(await body(req));
+        return json(res,{runId:engine.recover(id)},202);
+      }
       if(url.pathname==='/api/tool'&&req.method==='POST')return json(res,await engine.external(await body(req)));
       if(url.pathname==='/api/approval'&&req.method==='POST') {
         const input=z.strictObject({id:z.string().uuid(),approved:z.boolean()}).parse(await body(req));

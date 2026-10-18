@@ -1,6 +1,7 @@
 import type {Artifact,Event,Message,Observation} from '../contracts/index.ts';
 import type {PendingApproval} from './approval.tsx';
 export type State={active:string|null;history:Message[];events:Event[];artifacts:Artifact[];browser:Observation|null;artifactRoot:string;
+  interrupted?:{id:string;conversationId:string;message:string}[];
   queue?:{id:string;message:string}[];queuePaused?:boolean;conversations?:{id:string;title:string}[];native?:boolean;approval?:PendingApproval|null;research?:boolean;documents?:{name:string;bytes:number}[]};
 const token=document.querySelector<HTMLMetaElement>('meta[name="workbench-token"]')!.content;
 export const apiBase=document.querySelector<HTMLMetaElement>('meta[name="workbench-base"]')?.content??'';

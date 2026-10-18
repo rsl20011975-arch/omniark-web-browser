@@ -6,6 +6,7 @@ import {copy} from './copy.ts';
 import './style.css';
 import {ApprovalPanel} from './approval.tsx';
 import {Conversations} from './conversations.tsx';
+import {RecoveryPanel} from './recovery/index.tsx';
 function App() {
   const wholeChat=new URLSearchParams(location.search).get('mode')==='full';
   const nativePanel=(location.protocol==='chrome-extension:'&&!wholeChat)||new URLSearchParams(location.search).get('mode')==='panel';
@@ -52,6 +53,7 @@ function App() {
           {busy&&<div className="activity"><span className="pulse"/>{activity?.type==='action'?String((activity.payload as {explanation:string}).explanation):'작업을 처리하고 있습니다…'}</div>}<div ref={bottom}/></div>
         {error&&<div className="error" role="alert">{error}</div>}
         <ApprovalPanel pending={state?.approval} onError={setError}/>
+        <RecoveryPanel state={state} onError={setError}/>
         {state?.queuePaused&&<div className="approval">작업 실패 또는 사용자 조치 대기로 대기열이 멈췄습니다.<button onClick={()=>void api('queue/resume',{}).catch(e=>setError(String(e)))}>대기열 재개</button></div>}
         <form onSubmit={send}><textarea aria-label="작업 지시" value={message} onChange={e=>setMessage(e.target.value)} placeholder={copy.placeholder}/>
           {busy&&<div className="composer-footer"><select aria-label="진행 중 지시 방식" value={mode} onChange={e=>setMode(e.target.value as 'queue'|'steer')}><option value="queue">다음 작업으로 대기</option><option value="steer">현재 작업 수정</option></select><button type="button" onClick={()=>void api('stop',{}).catch(e=>setError(String(e)))}>{copy.stop}</button></div>}

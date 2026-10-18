@@ -15,6 +15,7 @@ import type {Observation,Provider} from '../contracts/index.ts';
 import {ResearchStore,type DocumentEvidence} from '../research/index.ts';
 import {completion} from './completion.ts';
 import {Documents} from '../documents/index.ts';
+import {reconcile} from './recovery.ts';
 export class Engine {
   store=new Store(config.data); files=new FileStore(config.artifacts);
   browser=config.native?new NativeBridge():new BrowserBridge();
@@ -30,7 +31,7 @@ export class Engine {
     if(this.active&&mode==='steer') {
       if(this.activeConversation!==conversationId)throw Error('Only the active conversation can be steered');
       this.activeProvider=provider;this.store.message(conversationId,'user',message);this.queue.steer();
-      this.store.event(this.active,'steered',{message});return this.active;
+      this.store.event(this.active,'steered',{message,provider});return this.active;
     }
     const task=this.queue.add(conversationId,message,provider);
     this.store.run(task.id,conversationId);this.store.status(task.id,'queued');
@@ -43,8 +44,8 @@ export class Engine {
     this.store.status(task.id,'running');this.store.message(task.conversationId,'user',task.message);
     this.store.event(task.id,'started',{message:task.message,provider:task.provider});void this.execute(task.id,task.conversationId);
   }
-  async execute(id:string,conversationId:string) {
-    const receipts:unknown[]=[];
+  async execute(id:string,conversationId:string,previousReceipts:unknown[]=[]) {
+    const receipts:unknown[]=[...previousReceipts];
     const observations:Observation[]=[];
     const documentEvidence:DocumentEvidence[]=[];
     try {
@@ -64,6 +65,9 @@ export class Engine {
           if(outcome==='needs_user')this.queue.paused=true;return;
         }
         await this.authorize(action,id);
+        if(this.stopped)throw Error('사용자가 작업을 중단했습니다.');
+        if(revision!==this.queue.revision){this.store.event(id,'replanning',{});continue;}
+        this.store.event(id,'planned',action);
         const result=action.kind==='read_document'?await this.documents.read(action.target)
           :await executeAction(action,this.files,this.browser);
         if('url' in result)observations.push(result);
@@ -83,7 +87,15 @@ export class Engine {
   state(conversationId:string) {
     return {active:this.active,history:this.store.history(conversationId),events:this.store.events(),
       artifacts:this.files.list(),browser:this.browser.observation??null,artifactRoot:config.artifacts,
-      queue:this.queue.tasks,queuePaused:this.queue.paused,conversations:this.store.conversations(),native:config.native,approval:this.approval.pending,research:true,documents:this.documents.list()};
+      queue:this.queue.tasks,queuePaused:this.queue.paused,interrupted:this.store.interrupted(),conversations:this.store.conversations(),native:config.native,approval:this.approval.pending,research:true,documents:this.documents.list()};
+  }
+  recover(id:string) {
+    if(this.active||this.externalBusy)throw Error('진행 중인 작업이 끝난 뒤 재개하세요.');
+    const task=reconcile(this.store,this.files,id);
+    this.active=id;this.activeConversation=task.conversationId;this.activeProvider=task.provider;this.stopped=false;
+    this.store.status(id,'running');this.store.event(id,'resumed',{receipts:task.receipts.length});
+    if(!task.alreadyStarted)this.store.message(task.conversationId,'user',task.message);
+    void this.execute(id,task.conversationId,task.receipts);return id;
   }
   resumeQueue(){this.queue.paused=false;if(!this.active)this.startNext();}
   async authorize(action:import('../contracts/index.ts').Action,id:string) {

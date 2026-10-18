@@ -11,7 +11,7 @@ export class Store {
       CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY, conversation TEXT, role TEXT, content TEXT);
       CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY,run TEXT,type TEXT,payload TEXT,time TEXT);
       CREATE TABLE IF NOT EXISTS runs(id TEXT PRIMARY KEY,conversation TEXT,status TEXT);
-      UPDATE runs SET status='interrupted' WHERE status IN ('running','queued');`);
+      UPDATE runs SET status='interrupted' WHERE status IN ('running','queued','waiting_approval');`);
     this.db.exec('CREATE TABLE IF NOT EXISTS requests(id TEXT PRIMARY KEY, conversation TEXT, message TEXT)');
   }
   message(conversation:string,role:Message['role'],content:string) {
@@ -43,5 +43,13 @@ export class Store {
   search(query:string) {
     return this.db.prepare(`SELECT conversation AS conversationId,role,content,id
       FROM messages WHERE instr(lower(content),lower(?))>0 ORDER BY id DESC LIMIT 40`).all(query);
+  }
+  interrupted() {
+    return this.db.prepare(`SELECT r.id,r.conversation AS conversationId,q.message FROM runs r
+      JOIN requests q ON q.id=r.id WHERE r.status='interrupted' ORDER BY r.rowid`).all();
+  }
+  runEvents(id:string):Event[] {
+    return this.db.prepare('SELECT id,run AS runId,type,payload,time FROM events WHERE run=? ORDER BY id')
+      .all(id).map(row=>({...row,payload:JSON.parse(String(row.payload))})) as Event[];
   }
 }

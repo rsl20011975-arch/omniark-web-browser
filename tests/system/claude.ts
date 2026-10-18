@@ -14,7 +14,7 @@ try {
   await new Promise(resolve=>setTimeout(resolve,2000));
   if(process.env.WORKBENCH_TEST_SCOPE!=='providers')await import('../external-claude.ts');
   const ui=await context.newPage();await ui.goto(`http://127.0.0.1:${config.port}`);
-  await ui.getByText('브라우저 탭과 연결되어 있습니다').waitFor();
+  await ui.locator('.browser-empty').waitFor();
   if(process.env.WORKBENCH_TEST_SCOPE==='providers')await (await import('../providers.ts')).providerWorkflow(ui);
   await ui.screenshot({path:path.join(root,'evidence/r2/native-status.png'),fullPage:true});
 }catch(error){console.error('TEST FAILURE:',error);throw error;}
