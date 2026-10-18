@@ -1,0 +1,1 @@
+@font-face{font-family:Workbench;src:url('./study-noto.woff2')}body{background:#f1f4ef;color:#243d32;font:16px/1.7 Workbench,sans-serif;margin:0}main{max-width:800px;margin:12vh auto;padding:48px}h1{font-size:48px;line-height:1.2;letter-spacing:-.02em}p{color:#576b5e}button{font:inherit;background:#295940;color:#fafbf8;border:0;border-radius:10px;padding:16px 32px;cursor:pointer}

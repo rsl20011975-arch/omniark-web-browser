@@ -6,6 +6,7 @@ export const actionSchema = z.strictObject({
 });
 export const chatSchema = z.strictObject({
   conversationId:z.string().uuid(), message:z.string().trim().min(1).max(16000),
+  mode:z.enum(['queue','steer']).default('queue'),
 });
 export type Action = z.infer<typeof actionSchema>;
 export type Message = {role:'user'|'assistant';content:string};

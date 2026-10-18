@@ -11,7 +11,8 @@ export class Store {
       CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY, conversation TEXT, role TEXT, content TEXT);
       CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY,run TEXT,type TEXT,payload TEXT,time TEXT);
       CREATE TABLE IF NOT EXISTS runs(id TEXT PRIMARY KEY,conversation TEXT,status TEXT);
-      UPDATE runs SET status='interrupted' WHERE status='running';`);
+      UPDATE runs SET status='interrupted' WHERE status IN ('running','queued');`);
+    this.db.exec('CREATE TABLE IF NOT EXISTS requests(id TEXT PRIMARY KEY, conversation TEXT, message TEXT)');
   }
   message(conversation:string,role:Message['role'],content:string) {
     this.db.prepare('INSERT INTO messages(conversation,role,content) VALUES(?,?,?)').run(conversation,role,content);
@@ -31,4 +32,11 @@ export class Store {
     this.db.prepare('INSERT INTO runs VALUES(?,?,?)').run(id,conversation,'running');
   }
   status(id:string,status:string) {this.db.prepare('UPDATE runs SET status=? WHERE id=?').run(status,id);}
+  request(id:string,conversation:string,message:string) {
+    this.db.prepare('INSERT INTO requests VALUES(?,?,?)').run(id,conversation,message);
+  }
+  conversations() {
+    return this.db.prepare(`SELECT conversation AS id, min(content) AS title, max(id) AS latest
+      FROM messages WHERE role='user' GROUP BY conversation ORDER BY latest DESC`).all();
+  }
 }

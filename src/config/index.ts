@@ -9,6 +9,7 @@ export const config = {
   profile: path.resolve(root, process.env.WORKBENCH_PROFILE ?? 'profiles/r1'),
   headless: process.env.WORKBENCH_HEADLESS === '1',
   codex: process.env.CODEX_BIN ?? 'codex.exe',
+  native: process.env.WORKBENCH_NATIVE === '1',
   steps: 16, modelTimeout: 180000, pageTimeout: 30000,
   maxText: 24000, maxFile: 200000, maxBody: 300000,
 };
