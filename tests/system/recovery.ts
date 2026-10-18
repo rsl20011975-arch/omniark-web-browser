@@ -16,6 +16,12 @@ try {
   const page=await browser.newPage({viewport:{width:1440,height:1000}});await page.goto(`http://127.0.0.1:${config.port}`);
   await page.getByRole('button',{name:'이 작업 이어가기'}).waitFor();
   await page.screenshot({path:path.join(root,'evidence/r2/recovery-pending.png'),fullPage:true});
+  if(process.env.WORKBENCH_TEST_SCOPE==='appearance') {
+    await page.setViewportSize({width:360,height:900});
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+    await page.screenshot({path:path.join(root,'evidence/r2/recovery-narrow.png'),fullPage:true});
+    console.log('RECOVERY UI PASS: narrow viewport, no horizontal overflow');
+  }else {
   await page.getByRole('button',{name:'이 작업 이어가기'}).click();
   await page.waitForFunction(()=>!document.body.innerText.includes('중단 요청')&&document.body.innerText.includes('second.md'),{},{timeout:180000});
   assert.equal(fs.readFileSync(first,'utf8'),'FIRST');assert.equal(fs.statSync(first).mtimeMs,before);
@@ -25,4 +31,5 @@ try {
   fs.writeFileSync(path.join(root,'evidence/r2/recovery.json'),JSON.stringify({status:'PASS',separateSeedProcess:true,
     boundary:'save-before-receipt',actualCodex:true,firstFileNotRewritten:true,secondFileVerified:true},null,2));
   console.log('RECOVERY PASS: separate process -> actual chat resume -> no duplicate first write');
+  }
 }finally{await browser.close();await server.closeTestServer();}

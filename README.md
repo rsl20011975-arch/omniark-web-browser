@@ -5,6 +5,8 @@
 Native Chromium side panel with actual web tabs, official Codex/Claude subscription
 selection, versioned text files, PDF/DOCX/XLSX reading, queue/steer, approvals,
 conversation search/drafts, evidence metadata and shared MCP tools.
+Interrupted file workflows can be resumed after verifying saved-file hashes;
+unknown click/fill outcomes require human inspection and are not automatically replayed.
 Actual native, document, external-agent and provider-switch workflows were tested.
 See [R3 verification](docs/R3-VERIFICATION.md) and [fixed acceptance ledger](docs/acceptance/features.csv).
 This is not 90% acceptance or a completed custom Chromium source build.
