@@ -1,5 +1,8 @@
 {
   "revision": "1721506",
+  "archive_sha256": "f345eb7961ec6cbcbbc99edb2500342961ba7bc94f5583dc64b1fe4085888e1c",
+  "runtime_read_execute_sids": ["S-1-15-2-1", "S-1-15-2-2"],
+  "diagnostic_hosts": ["flow.google.com", "accounts.google.com", "www.chromium.org"],
   "upstream_base": "https://storage.googleapis.com/chromium-browser-snapshots/Win_x64",
   "runtime_dir": "runtime",
   "profile_dir": "profiles/p0",

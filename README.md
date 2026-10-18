@@ -51,3 +51,22 @@ its PID and opens Flow in a separate browser. Do not use system-wide kill comman
 https://chromium.googlesource.com/chromium/src/+/main/docs/windows_build_instructions.md
 Official minimum: 100 GB free NTFS disk, 8 GB RAM, VS 2026 C++/ATL/MFC.
 Initial measured disk free: C 60.5, D 50.8, E 54.7, F 40.7 GiB.
+
+## Windows blank-page repair (2026-10-18)
+
+Startup logs reproduced `Sandbox cannot access executable` (access denied 0x5)
+and a NetworkService restart on both Flow and chromium.org. The downloaded
+runtime lacked app-container read/execute permissions. Acquisition now grants RX
+only to `runtime/chrome-win`, after backing up its ACL. Profiles are excluded.
+Sandbox disabling is not used. Source: https://pptr.dev/troubleshooting#chrome-reports-sandbox-errors-on-windows
+
+After granting runtime permissions and relaunching after a user reboot, the local
+target endpoint reported Google's sign-in page. Flow/about and Google's sign-in
+JavaScript were loaded according to startup logs. This proves progress past the
+blank-page failure, not successful authentication or generation.
+
+The active manually relaunched profile is `profiles/diagnostic`, port 19263.
+`profiles/p0` remains preserved. Never infer a live session from a stale
+DevToolsActivePort file after reboot. Verify the owning process before attachment.
+The current native UI tool cannot reliably resolve this Chromium's URL; a failed
+policy check must not be bypassed with another UI automation transport.

@@ -6,6 +6,7 @@ import zipfile
 from datetime import datetime, timezone
 
 from config import CONFIG, local_path
+from browser.permissions import prepare_runtime
 
 
 def main() -> None:
@@ -19,7 +20,10 @@ def main() -> None:
             with temporary.open("wb") as destination:
                 shutil.copyfileobj(source, destination)
         temporary.replace(archive)
-    digest = hashlib.file_digest(archive.open("rb"), "sha256").hexdigest()
+    with archive.open("rb") as downloaded:
+        digest = hashlib.file_digest(downloaded, "sha256").hexdigest()
+    if digest != CONFIG["archive_sha256"]:
+        raise ValueError("Downloaded archive differs from the pinned upstream artifact")
     with zipfile.ZipFile(archive) as package:
         for member in package.infolist():
             if not (runtime / member.filename).resolve().is_relative_to(runtime):
@@ -28,6 +32,7 @@ def main() -> None:
     executable = runtime / "chrome-win/chrome.exe"
     if not executable.is_file():
         raise RuntimeError("Chromium executable missing")
+    prepare_runtime(executable.parent)
     manifest = {
         "kind": "unmodified_official_chromium_snapshot",
         "custom_source_build": False, "revision": CONFIG["revision"],
