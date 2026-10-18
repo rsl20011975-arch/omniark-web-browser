@@ -1,0 +1,10 @@
+{
+  "revision": "1721506",
+  "upstream_base": "https://storage.googleapis.com/chromium-browser-snapshots/Win_x64",
+  "runtime_dir": "runtime",
+  "profile_dir": "profiles/p0",
+  "evidence_dir": "evidence",
+  "start_url": "https://flow.google.com/",
+  "network_timeout_seconds": 120,
+  "research_url": "https://www.chromium.org/getting-involved/download-chromium/"
+}
