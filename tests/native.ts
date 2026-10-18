@@ -6,7 +6,7 @@ import {config,root} from '../src/config/index.ts';
 import {NativeTarget} from './native-target.ts';
 const extension=config.nativeDirectory;
 await fetch(`http://127.0.0.1:${config.port}/`);
-const context=await chromium.launchPersistentContext(path.join(root,'profiles/r2-qa-'+Date.now()),{
+export const context=await chromium.launchPersistentContext(path.join(root,'profiles/r2-qa-'+Date.now()),{
   executablePath:config.chrome,headless:false,viewport:{width:1440,height:1000},
   args:[`--disable-extensions-except=${extension}`,`--load-extension=${extension}`],
 });
@@ -54,7 +54,17 @@ assert.equal(await actual.locator('tbody tr').count(),10);
 await actual.screenshot({path:path.join(root,'evidence/r2/actual-tab.png')});
 const screen=await panel.send('Page.captureScreenshot',{format:'png'}) as {data:string};
 fs.writeFileSync(path.join(root,'evidence/r2/native-panel.png'),Buffer.from(screen.data,'base64'));
+const fullPage=context.waitForEvent('page');
+await panel.evaluate(`Array.from(document.querySelectorAll('button')).find(button=>button.textContent==='전체 대화').click()`,true);
+const full=await fullPage;await full.waitForLoadState('domcontentloaded');
+await full.getByRole('textbox',{name:'작업 지시'}).waitFor();
+assert.ok((await full.locator('.messages').innerText()).includes('검토 열'));
+assert.equal(await full.locator('.browser-panel').count(),0);
+await full.getByRole('textbox',{name:'작업 지시'}).fill('공유 초안');
+await new Promise(resolve=>setTimeout(resolve,400));
+assert.equal(await panel.evaluate(`document.querySelector('textarea').value`),'공유 초안');
+await full.screenshot({path:path.join(root,'evidence/r2/native-full-chat.png'),fullPage:true});
 fs.writeFileSync(path.join(root,'evidence/r2/native.json'),JSON.stringify({status:'PASS',panelOpened:true,
-  realTab:actual.url(),rows:10,queuedFollowup:true,provenance:true,content,extensionId:id},null,2));
+  realTab:actual.url(),rows:10,queuedFollowup:true,provenance:true,fullChatSameConversation:true,sharedDraft:true,content,extensionId:id},null,2));
 console.log('NATIVE PASS: actual side panel -> actual visible tab -> CSV');
-await context.close();
+if(process.env.WORKBENCH_KEEP_BROWSER!=='1')await context.close();

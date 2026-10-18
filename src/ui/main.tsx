@@ -18,7 +18,7 @@ function App() {
     let disposed=false;
     const refresh=async()=>{
       try {const current=await api<State>('state?conversation='+conversation);if(disposed)return;setState(current);
-        if(current.browser?.id&&current.browser.id!==snapshotId.current){
+        if(!current.native&&current.browser?.id&&current.browser.id!==snapshotId.current){
           snapshotId.current=current.browser.id;const next=await screenshot();
           if(imageUrl.current)URL.revokeObjectURL(imageUrl.current);imageUrl.current=next;setImage(next);
         }
@@ -56,7 +56,7 @@ function App() {
           {busy&&<div className="composer-footer"><select aria-label="진행 중 지시 방식" value={mode} onChange={e=>setMode(e.target.value as 'queue'|'steer')}><option value="queue">다음 작업으로 대기</option><option value="steer">현재 작업 수정</option></select><button type="button" onClick={()=>void api('stop',{}).catch(e=>setError(String(e)))}>{copy.stop}</button></div>}
           <div className="composer-footer"><small>{state?.queue?.length?`대기 중 ${state.queue.length}개`:'수정 전 버전 보관'}</small><button className="primary" disabled={!message.trim()||sending}>{busy?'지시 보내기':copy.send}</button></div></form>
       </section>
-    </div><footer>{copy.runtime}<span>파일 결과와 실행 기록은 이 PC에 저장됩니다.</span></footer>
+    </div><footer>{state?.native?'Chromium · 전용 채팅 패널':copy.runtime}<span>파일 결과와 실행 기록은 이 PC에 저장됩니다.</span></footer>
   </main>;
 }
 createRoot(document.getElementById('root')!).render(<App/>);

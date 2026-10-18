@@ -18,8 +18,8 @@ export class NativeTarget {
     await this.transport.send('Target.sendMessageToTarget',{sessionId:this.sessionId,message:JSON.stringify({id,method,params})});
     return result;
   }
-  async evaluate(expression:string) {
-    const response=await this.send('Runtime.evaluate',{expression,contextId:this.contextId,awaitPromise:true,returnByValue:true}) as
+  async evaluate(expression:string,userGesture=false) {
+    const response=await this.send('Runtime.evaluate',{expression,contextId:this.contextId,awaitPromise:true,returnByValue:true,userGesture}) as
       {result:{value:unknown};exceptionDetails?:unknown};
     if(response.exceptionDetails)throw Error(JSON.stringify(response.exceptionDetails));return response.result.value;
   }
