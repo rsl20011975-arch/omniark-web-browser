@@ -36,7 +36,12 @@ export class Store {
     this.db.prepare('INSERT INTO requests VALUES(?,?,?)').run(id,conversation,message);
   }
   conversations() {
-    return this.db.prepare(`SELECT conversation AS id, min(content) AS title, max(id) AS latest
-      FROM messages WHERE role='user' GROUP BY conversation ORDER BY latest DESC`).all();
+    return this.db.prepare(`SELECT m.conversation AS id, m.content AS title FROM messages m
+      WHERE m.id IN (SELECT min(id) FROM messages WHERE role='user' GROUP BY conversation)
+      ORDER BY m.id DESC`).all();
+  }
+  search(query:string) {
+    return this.db.prepare(`SELECT conversation AS conversationId,role,content,id
+      FROM messages WHERE instr(lower(content),lower(?))>0 ORDER BY id DESC LIMIT 40`).all(query);
   }
 }

@@ -1,6 +1,8 @@
 import {useState} from 'react';
 import type {State} from './api.ts';
 import {copy} from './copy.ts';
+import {SourcesPanel} from './sources.tsx';
+import {DocumentsPanel} from './documents/index.tsx';
 export function BrowserPanel({state,image}:{state:State|null;image:string|null}) {
   return <section className="browser-panel"><div className="pane-heading"><span>{copy.browser}</span><span className="badge">전용 세션</span></div>
     <div className="address">{state?.browser?.url??'아직 열린 페이지 없음'}</div>
@@ -13,7 +15,7 @@ export function FilePanel({state}:{state:State|null}) {
   const chosen=files.find(f=>f.name===name)??files[0];
   return <section className="files-panel"><div className="pane-heading"><span>{copy.files}</span><span className="badge">{files.length}개</span></div>
     {files.length?<><div className="file-tabs">{files.map(file=><button key={file.name} className={chosen?.name===file.name?'selected':''} onClick={()=>setName(file.name)}>{file.name}</button>)}</div>
-      <pre className="file-content">{chosen?.content}</pre><div className="file-meta">{chosen?.bytes} bytes · SHA256 {chosen?.hash.slice(0,12)}<br/>{state?.artifactRoot}</div></>:
-      <p className="empty-files">{copy.emptyFile}</p>}
+      <pre className="file-content">{chosen?.content}</pre><div className="file-meta">{chosen?.bytes} bytes · SHA256 {chosen?.hash.slice(0,12)}<br/>{state?.artifactRoot}</div>{state?.research&&chosen&&<SourcesPanel name={chosen.name}/>}</>:
+      <p className="empty-files">{copy.emptyFile}</p>}<DocumentsPanel state={state}/>
   </section>;
 }

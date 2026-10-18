@@ -4,7 +4,7 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import {config,root} from '../src/config/index.ts';
 import {NativeTarget} from './native-target.ts';
-const extension=path.join(root,'native-runtime');
+const extension=config.nativeDirectory;
 await fetch(`http://127.0.0.1:${config.port}/`);
 const context=await chromium.launchPersistentContext(path.join(root,'profiles/r2-qa-'+Date.now()),{
   executablePath:config.chrome,headless:false,viewport:{width:1440,height:1000},
@@ -44,15 +44,17 @@ while(await panel.evaluate(`Array.from(document.querySelectorAll('button')).some
   await new Promise(resolve=>setTimeout(resolve,1000));
 }
 assert.ok(!String(await panel.evaluate(`document.querySelector('.messages').innerText`)).includes('작업을 완료하지 못했습니다'));
-const content=fs.readFileSync(path.join(root,'artifacts/r2/네이티브.csv'),'utf8');
+const content=fs.readFileSync(path.join(config.artifacts,'네이티브.csv'),'utf8');
 assert.equal(content.trim().split(/\r?\n/).length,11);
 assert.equal((content.match(/완료/g)??[]).length,10);
+const provenance=JSON.parse(fs.readFileSync(path.join(config.artifacts,'.sources/네이티브.csv.json'),'utf8'));
+assert.ok(provenance.sources.some((source:{url:string})=>source.url.includes('/fixture')));
 const actual=context.pages().find(page=>page.url().includes('/fixture'));assert.ok(actual);
 assert.equal(await actual.locator('tbody tr').count(),10);
 await actual.screenshot({path:path.join(root,'evidence/r2/actual-tab.png')});
 const screen=await panel.send('Page.captureScreenshot',{format:'png'}) as {data:string};
 fs.writeFileSync(path.join(root,'evidence/r2/native-panel.png'),Buffer.from(screen.data,'base64'));
 fs.writeFileSync(path.join(root,'evidence/r2/native.json'),JSON.stringify({status:'PASS',panelOpened:true,
-  realTab:actual.url(),rows:10,queuedFollowup:true,content,extensionId:id},null,2));
+  realTab:actual.url(),rows:10,queuedFollowup:true,provenance:true,content,extensionId:id},null,2));
 console.log('NATIVE PASS: actual side panel -> actual visible tab -> CSV');
 await context.close();

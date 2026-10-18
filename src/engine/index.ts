@@ -11,12 +11,18 @@ import {TaskQueue} from './queue.ts';
 import {Approval,decision,ruleSchema} from '../permissions/index.ts';
 import {toolSchema,executeAction,fileAction} from './tools.ts';
 import {actionSchema} from '../contracts/index.ts';
+import type {Observation} from '../contracts/index.ts';
+import {ResearchStore} from '../research/index.ts';
+import {completion} from './completion.ts';
+import {Documents} from '../documents/index.ts';
 export class Engine {
   store=new Store(config.data); files=new FileStore(config.artifacts);
   browser=config.native?new NativeBridge():new BrowserBridge();
   active:string|null=null; stopped=false;
   activeConversation:string|null=null;queue=new TaskQueue();
   approval=new Approval();externalBusy=false;
+  research=new ResearchStore(config.artifacts);
+  documents=new Documents(config.data);
   constructor() {}
   submit(conversationId:string,message:string,mode:'queue'|'steer'='queue') {
     if(this.externalBusy)throw Error('외부 AI가 브라우저 도구를 사용 중입니다.');
@@ -38,27 +44,34 @@ export class Engine {
   }
   async execute(id:string,conversationId:string) {
     const receipts:unknown[]=[];
+    const observations:Observation[]=[];
     try {
       for(let step=0;step<config.steps;step++) {
         if(this.stopped) throw Error('사용자가 작업을 중단했습니다. 완료된 변경은 유지됩니다.');
         this.store.event(id,'thinking',{step});
         const revision=this.queue.revision;
         const action=await decide({history:this.store.history(conversationId),
-          browser:this.browser.observation??null,files:this.files.list(),receipts});
+          browser:this.browser.observation??null,files:this.files.list(),documents:this.documents.list(),receipts});
         if(this.stopped) throw Error('사용자가 작업을 중단했습니다.');
         if(revision!==this.queue.revision){this.store.event(id,'replanning',{});continue;}
         this.store.event(id,'action',{kind:action.kind,target:action.target,explanation:action.explanation});
-        if(action.kind==='finish') {
+        const outcome=completion(action,receipts);
+        if(outcome) {
           this.store.message(conversationId,'assistant',action.value);
-          this.store.status(id,'completed');this.store.event(id,'completed',{message:action.value});return;
+          this.store.status(id,outcome);this.store.event(id,outcome,{message:action.value});
+          if(outcome==='needs_user')this.queue.paused=true;return;
         }
         await this.authorize(action,id);
-        const result=await executeAction(action,this.files,this.browser);
+        const result=action.kind==='read_document'?await this.documents.read(action.target)
+          :await executeAction(action,this.files,this.browser);
+        if('url' in result)observations.push(result);
+        if(action.kind==='save'&&observations.length)this.research.record(action.target,observations,id);
         receipts.push({action:action.kind,result});
         this.store.event(id,'result',{kind:action.kind,result});
       }
       throw Error('실행 단계 한도에 도달했습니다. 작업 기록에서 마지막 결과를 확인하세요.');
     } catch(error) {
+      this.queue.paused=true;
       const message=error instanceof Error?error.message:String(error);
       this.store.status(id,'failed');this.store.event(id,'failed',{message});
       this.store.message(conversationId,'assistant','작업을 완료하지 못했습니다. '+message);
@@ -67,8 +80,9 @@ export class Engine {
   state(conversationId:string) {
     return {active:this.active,history:this.store.history(conversationId),events:this.store.events(),
       artifacts:this.files.list(),browser:this.browser.observation??null,artifactRoot:config.artifacts,
-      queue:this.queue.tasks,conversations:this.store.conversations(),native:config.native,approval:this.approval.pending};
+      queue:this.queue.tasks,queuePaused:this.queue.paused,conversations:this.store.conversations(),native:config.native,approval:this.approval.pending,research:true,documents:this.documents.list()};
   }
+  resumeQueue(){this.queue.paused=false;if(!this.active)this.startNext();}
   async authorize(action:import('../contracts/index.ts').Action,id:string) {
     const file=path.join(config.data,'permissions.json');
     const rules=fs.existsSync(file)?ruleSchema.parse(JSON.parse(fs.readFileSync(file,'utf8'))):[];

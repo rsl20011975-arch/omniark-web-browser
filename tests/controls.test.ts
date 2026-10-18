@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {TaskQueue} from '../src/engine/queue.ts';
 import {Approval,decision} from '../src/permissions/index.ts';
 import {actionSchema,type Action} from '../src/contracts/index.ts';
+import {completion} from '../src/engine/completion.ts';
 const action:Action={kind:'navigate',target:'https://example.com',value:'',expectedHash:'',observationId:'',explanation:'test'};
 test('Deny dominates allow and ask; exact host matching',()=>{
   assert.equal(decision(action,undefined,[{tool:'*',host:'*',decision:'allow'},
@@ -24,4 +25,10 @@ test('Queue FIFO does not mix requests; steer invalidates earlier plan revision'
 test('Unknown model tool and unexpected fields rejected at boundary',()=>{
   assert.equal(actionSchema.safeParse({...action,kind:'shell'}).success,false);
   assert.equal(actionSchema.safeParse({...action,command:'something'}).success,false);
+});
+test('No receipts cannot become completed; blocked replies keep queue paused',()=>{
+  assert.throws(()=>completion({...action,kind:'finish'},[]),/완료/);
+  assert.equal(completion({...action,kind:'wait_user'},[]),'needs_user');
+  const queue=new TaskQueue();queue.add('a','follow-up');queue.paused=true;
+  assert.equal(queue.take(),undefined);assert.equal(queue.tasks.length,1);
 });

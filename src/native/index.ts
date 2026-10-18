@@ -4,12 +4,20 @@ import type {Action,Observation} from '../contracts/index.ts';
 const observed=z.object({id:z.string(),url:z.string(),title:z.string(),text:z.string(),
   controls:z.array(z.object({ref:z.string(),tag:z.string(),label:z.string()})),truncated:z.boolean()});
 export class NativeBridge {
-  observation?:Observation;screenshot?:Buffer;connectedAt=0;
+  observation?:Observation;screenshot?:Buffer;connectedAt=0;owner:string|null=null;
   private pending:{id:string;action:Action}[]=[];
   private waiting=new Map<string,{resolve:(o:Observation)=>void;reject:(error:Error)=>void;timer:NodeJS.Timeout}>();
-  next() {this.connectedAt=Date.now();return this.pending.shift()??null;}
-  invalidate() {this.observation=undefined;}
-  complete(input:unknown) {
+  next(clientId:string) {
+    z.string().uuid().parse(clientId);
+    if(this.owner!==clientId) {
+      if(this.owner&&(Date.now()-this.connectedAt<15000||this.waiting.size))throw Error('Another browser profile owns this bridge');
+      this.owner=clientId;this.observation=undefined;
+    }
+    this.connectedAt=Date.now();return this.pending.shift()??null;
+  }
+  invalidate(clientId:string) {if(clientId!==this.owner)throw Error('Wrong browser profile');this.observation=undefined;}
+  complete(input:unknown,clientId:string) {
+    if(clientId!==this.owner)throw Error('Wrong browser profile');
     const result=z.strictObject({id:z.string().uuid(),result:observed.optional(),error:z.string().optional()}).parse(input);
     const waiter=this.waiting.get(result.id);if(!waiter)throw Error('Unknown or expired operation');
     this.waiting.delete(result.id);clearTimeout(waiter.timer);

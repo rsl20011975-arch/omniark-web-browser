@@ -1,9 +1,9 @@
 import {inspect,manipulate} from './dom.js';
-let selected=null,connection=null;
+let selected=null,connection=null,clientId='';
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function call(route,body) {
   const response=await fetch(connection.origin+'/bridge/'+route,{method:body?'POST':'GET',
-    headers:{'x-workbench-token':connection.token,'x-workbench-extension':chrome.runtime.id,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
+    headers:{'x-workbench-token':connection.token,'x-workbench-extension':chrome.runtime.id,'x-workbench-client':clientId,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
   if(!response.ok)throw Error(`Bridge ${response.status}: ${await response.text()}`);return response.json();
 }
 async function current() {
@@ -40,9 +40,14 @@ chrome.sidePanel.onOpened.addListener(info=>{void chrome.storage.session.set({pa
 chrome.commands.onCommand.addListener(async command=>{
   if(command==='open-chat'){const tab=await current();await chrome.sidePanel.open({windowId:tab.windowId});}
 });
-chrome.tabs.onActivated.addListener(({tabId})=>{selected=tabId;if(connection)void call('invalidate',{}).catch(console.error);});
+chrome.tabs.onActivated.addListener(({tabId})=>{void chrome.tabs.get(tabId).then(tab=>{
+  if(/^https?:/.test(tab.url??'')){selected=tabId;if(connection)return call('invalidate',{});}
+}).catch(console.error);});
 chrome.tabs.onUpdated.addListener((tabId,change)=>{if(tabId===selected&&change.status==='loading'&&connection)void call('invalidate',{}).catch(console.error);});
 async function poll() {
+  const identity=await chrome.storage.local.get('workbenchClientId');
+  clientId=identity.workbenchClientId??crypto.randomUUID();
+  await chrome.storage.local.set({workbenchClientId:clientId});
   for(;;) {
     try {
       connection=await (await fetch(chrome.runtime.getURL('connection.json'),{cache:'no-store'})).json();

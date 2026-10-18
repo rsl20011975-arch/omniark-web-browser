@@ -3,7 +3,7 @@ import path from 'node:path';
 import {generateKeyPairSync,createHash} from 'node:crypto';
 import {config,root} from '../config/index.ts';
 export function prepareExtension(token:string) {
-  const directory=path.join(root,'native-runtime');fs.mkdirSync(directory,{recursive:true});
+  const directory=config.nativeDirectory;fs.mkdirSync(directory,{recursive:true});
   const keyPath=path.join(directory,'public-key.txt');
   if(!fs.existsSync(keyPath)) {
     const {publicKey}=generateKeyPairSync('rsa',{modulusLength:2048});

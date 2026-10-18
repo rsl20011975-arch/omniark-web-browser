@@ -1,6 +1,6 @@
 import { z } from 'zod';
 export const actionSchema = z.strictObject({
-  kind:z.enum(['navigate','observe','click','fill','save','finish']),
+  kind:z.enum(['navigate','observe','click','fill','save','read_document','finish','wait_user','reply']),
   target:z.string(), value:z.string(), expectedHash:z.string(),
   observationId:z.string(), explanation:z.string(),
 });

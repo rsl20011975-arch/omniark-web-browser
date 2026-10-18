@@ -20,7 +20,7 @@ const server=createServer(async(req,res)=>{
     const url=new URL(req.url??'/',origin);
     if(extension&&req.headers.origin===extension.origin) {
       res.setHeader('Access-Control-Allow-Origin',extension.origin);
-      res.setHeader('Access-Control-Allow-Headers','x-workbench-token,x-workbench-extension,content-type');
+      res.setHeader('Access-Control-Allow-Headers','x-workbench-token,x-workbench-extension,x-workbench-client,content-type');
       res.setHeader('Access-Control-Allow-Methods','GET,POST,OPTIONS');
       if(req.method==='OPTIONS'){res.writeHead(204);return res.end();}
     }
@@ -28,9 +28,10 @@ const server=createServer(async(req,res)=>{
       if(req.headers['x-workbench-token']!==token||req.headers['x-workbench-extension']!==extension?.id
         ||(req.headers.origin&&req.headers.origin!==extension?.origin))
         return json(res,{error:'Unpaired extension'},403);
-      if(url.pathname==='/bridge/next')return json(res,engine.browser.next());
-      if(url.pathname==='/bridge/result'&&req.method==='POST'){engine.browser.complete(await body(req));return json(res,{ok:true});}
-      if(url.pathname==='/bridge/invalidate'&&req.method==='POST'){engine.browser.invalidate();return json(res,{ok:true});}
+      const clientId=z.string().uuid().parse(req.headers['x-workbench-client']);
+      if(url.pathname==='/bridge/next')return json(res,engine.browser.next(clientId));
+      if(url.pathname==='/bridge/result'&&req.method==='POST'){engine.browser.complete(await body(req),clientId);return json(res,{ok:true});}
+      if(url.pathname==='/bridge/invalidate'&&req.method==='POST'){engine.browser.invalidate(clientId);return json(res,{ok:true});}
       return json(res,{error:'Unknown bridge route'},404);
     }
     if(url.pathname==='/fixture') {res.setHeader('Content-Type','text/html; charset=utf-8');return res.end(fixture);}
@@ -40,6 +41,9 @@ const server=createServer(async(req,res)=>{
         &&(!req.headers.origin||req.headers.origin===extension.origin);
       if(req.method==='POST'&&req.headers.origin!==origin&&!pairedExtension) return json(res,{error:'Origin rejected'},403);
       if(url.pathname==='/api/state') return json(res,engine.state(url.searchParams.get('conversation')??''));
+      if(url.pathname==='/api/search')return json(res,engine.store.search(url.searchParams.get('q')??''));
+      if(url.pathname==='/api/provenance')return json(res,engine.research.read(url.searchParams.get('name')??''));
+      if(url.pathname==='/api/documents'&&req.method==='POST')return json(res,engine.documents.upload(await body(req,29000000)));
       if(url.pathname==='/api/screenshot') {
         res.setHeader('Content-Type','image/jpeg');res.setHeader('Cache-Control','no-store');
         return engine.browser.screenshot?res.end(engine.browser.screenshot):json(res,{error:'No browser observation'},404);
@@ -48,6 +52,7 @@ const server=createServer(async(req,res)=>{
         const input=chatSchema.parse(await body(req));return json(res,{runId:engine.submit(input.conversationId,input.message,input.mode)},202);
       }
       if(url.pathname==='/api/stop'&&req.method==='POST') {engine.stopped=true;engine.approval.cancel();return json(res,{ok:true});}
+      if(url.pathname==='/api/queue/resume'&&req.method==='POST'){engine.resumeQueue();return json(res,{ok:true});}
       if(url.pathname==='/api/tool'&&req.method==='POST')return json(res,await engine.external(await body(req)));
       if(url.pathname==='/api/approval'&&req.method==='POST') {
         const input=z.strictObject({id:z.string().uuid(),approved:z.boolean()}).parse(await body(req));
@@ -67,4 +72,11 @@ const server=createServer(async(req,res)=>{
     res.end(bytes);
   } catch(error) {json(res,{error:error instanceof Error?error.message:String(error)},400);}
 });
-server.listen(config.port,'127.0.0.1',()=>console.log(`Workbench ready: ${origin}`));
+export const ready=new Promise<void>(resolve=>server.listen(config.port,'127.0.0.1',()=>{
+  console.log(`Workbench ready: ${origin}`);resolve();
+}));
+export async function closeTestServer() {
+  if(engine.active||engine.externalBusy)throw Error('Cannot close a server with active work');
+  await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
+  engine.store.db.close();
+}
