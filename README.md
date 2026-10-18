@@ -1,4 +1,47 @@
-# Local Browser — P0 compatibility probe
+# Local Workbench — R1 conversational browser and files
+
+## Run
+
+Double-click `Start-Workbench.cmd`, or open http://127.0.0.1:19371 while the server
+is running. Launcher opens a separate Chromium app window using
+`profiles/workbench-ui`. The automation browser owns `profiles/r1`; previous
+`profiles/diagnostic` and `profiles/p0` are not attached or changed.
+
+The installed official Codex CLI must be signed in (`codex login status`).
+No additional API key is used. ChatGPT/Codex account usage limits still apply.
+
+Examples:
+
+- `https://example.com 에서 제목과 본문 첫 문장을 읽어 출처와 함께 조사.md로 저장해줘.`
+- `조사.md에 확인할 항목이라는 제목을 추가하고 세 가지 체크리스트를 써줘.`
+- `http://127.0.0.1:19371/fixture 에서 목록 보기를 눌러 10행을 업무.csv로 저장해줘.`
+- `업무.csv의 기존 행을 유지하고 검토 열을 추가해서 완료로 표시해줘.`
+
+Files are physically stored in `artifacts/`. Previous versions are retained in
+`artifacts/.versions/`; messages and events in `data/workbench.sqlite`.
+R1 supports UTF-8 `.md`, `.txt`, `.csv`, `.json` files in that directory only.
+The panel displays the last actual browser observation, not an embedded interactive
+tab. Browser work is requested through chat. A/C layouts and light/dark modes work.
+
+## Verified 2026-10-18
+
+Real Codex inference: navigation + button click + 10-row CSV creation; same-chat
+revision preserving all 10 original rows and values; previous version retained.
+External HTTPS example.com read -> sourced Markdown. Six viewport/theme checks:
+zero horizontal overflow; zero page errors. See `docs/R1-VERIFICATION.md`.
+
+Commands: `npm run build`, `npm test`, `npm run test:live` (running local server
+required), `node node_modules/tsx/dist/cli.mjs tests/public.ts`.
+
+This is the R1 compatibility bridge, not 90% Aside parity or the final patched
+Chromium browser. Flow generation, blocked-site compatibility, provider switching,
+native WebUI and arbitrary existing-folder editing are not validated in R1.
+Node 24.13 emits an experimental warning for its built-in SQLite JS API; its API
+must be version-pinned and revisited before production distribution.
+
+---
+
+## Previous P0 compatibility probe
 
 Approved design: ../../outputs/Aside 로컬 브라우저 구현 설계.md
 
